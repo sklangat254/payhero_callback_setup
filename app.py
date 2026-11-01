@@ -228,6 +228,85 @@ def callback():
         print("FINOQ_WEBHOOK_SECRET not set")
     return jsonify(ok=True)
 
+# ===================== HASHBACK WALLET B2C =====================
+HB_URL = "https://api.hashback.co.ke"
+HB_KEY = os.environ.get("HASHBACK_API_KEY", "")
+HB_CRED = os.environ.get("HASHBACK_SECURITY_CREDENTIAL", "")
+HB_WALLET = os.environ.get("HASHBACK_WALLET_ID", "")
+
+
+def local_phone(p):
+    p = p.strip().replace("+", "").replace(" ", "").replace("-", "")
+    if p.startswith("254"):
+        p = "0" + p[3:]
+    elif not p.startswith("0"):
+        p = "0" + p
+    return p
+
+
+@app.post("/hb/balance")
+def hb_balance():
+    if request.headers.get("X-API-Key") != API_KEY:
+        return jsonify(success=False, message="Unauthorized"), 401
+    try:
+        r = requests.post(f"{HB_URL}/walletbalance",
+                          json={"api_key": HB_KEY, "account_id": HB_WALLET},
+                          timeout=20)
+    except requests.RequestException as e:
+        return jsonify(success=False, message=f"Network error: {e}"), 502
+    print("HB BALANCE", r.status_code, r.text)
+    try:
+        return jsonify(r.json()), r.status_code
+    except ValueError:
+        return jsonify(raw=r.text[:500]), r.status_code
+
+
+@app.post("/hb/withdraw")
+def hb_withdraw():
+    if request.headers.get("X-API-Key") != API_KEY:
+        return jsonify(success=False, message="Unauthorized"), 401
+
+    d = request.get_json(force=True, silent=True) or {}
+    try:
+        amount = int(float(d.get("amount", 0)))
+    except (ValueError, TypeError):
+        amount = 0
+    ref = str(d.get("reference", "")).strip()
+    intl = bool(d.get("intl"))   # True = send 2547..., default 07...
+
+    if not d.get("phone") or amount < 1 or not ref:
+        return jsonify(success=False, message="phone, amount, reference required"), 400
+    if amount > MAX_WITHDRAW:
+        return jsonify(success=False, message=f"Max per withdrawal is {MAX_WITHDRAW}"), 400
+    if ref in USED_REFS:
+        return jsonify(success=False, message="Duplicate reference"), 409
+    if not (HB_KEY and HB_CRED):
+        return jsonify(success=False, message="HashBack env vars not set"), 500
+
+    phone = fmt_phone(str(d["phone"])) if intl else local_phone(str(d["phone"]))
+    payload = {"api_key": HB_KEY, "msisdn": phone, "amount": amount,
+               "SecurityCredential": HB_CRED}
+
+    USED_REFS.add(ref)
+    print("HB WITHDRAW REQUEST", {"msisdn": phone, "amount": amount, "ref": ref})
+    try:
+        r = requests.post(f"{HB_URL}/V2/processwithdrawal", json=payload, timeout=40)
+    except requests.RequestException as e:
+        # may or may not have gone through: keep the ref locked, check balance
+        return jsonify(success=False, message=f"Network error (check balance before retrying): {e}"), 502
+    print("HB WITHDRAW", r.status_code, r.text)
+
+    try:
+        body = r.json()
+    except ValueError:
+        return jsonify(success=False, message="Unclear reply, check balance before retrying",
+                       raw=r.text[:300]), 502
+
+    if body.get("success") is True:
+        return jsonify(success=True, reply=body)
+    if r.status_code in (400, 401, 402, 403):
+        USED_REFS.discard(ref)    # clear rejection: safe to retry
+    return jsonify(success=False, reply=body), r.status_code
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
