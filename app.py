@@ -41,7 +41,8 @@ def pay():
     except (ValueError, TypeError):
         amount = 0
     if not d.get("phone") or amount < 1:
-        return jsonify(success=False, message="Phone and amount required"), 400
+            return jsonify(success=False,
+                   message=f"{body.get('error_message') or body.get('message') or 'Failed'} | {r.text[:300]}"), 400
 
     payload = {
         "amount": amount,
