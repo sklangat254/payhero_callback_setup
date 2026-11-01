@@ -11,7 +11,12 @@ AUTH = "Basic NVUyRXl1S1FBTlhwa2t2TUROUzY6aE9tc2xmUDZCYmR1dTJzV1RCb2ZiSnhoRUlrWX
 CHANNEL_ID = 10752
 CALLBACK_URL = "https://payhero-callback-setup.onrender.com/callback"   # optional: e.g. "https://YOUR-SERVICE.onrender.com/callback"
 
-HEADERS = {"Authorization": AUTH, "Content-Type": "application/json"}
+HEADERS = {
+    "Authorization": AUTH,
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "Accept-Encoding": "identity",   # ask PayHero not to compress
+}
 
 
 def fmt_phone(p):
