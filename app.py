@@ -98,9 +98,10 @@ def withdraw():
         "external_reference": ref,
         "amount": amount,
         "phone_number": fmt_phone(str(d["phone"])),
-        "network_code": "63902",
+        "network_code": 63902,
         "channel": "mobile",
         "channel_id": 10752,
+        "payment_service": "b2c",
     }
 
     USED_REFS.add(ref)
