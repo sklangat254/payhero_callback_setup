@@ -9,13 +9,13 @@ CORS(app)
 BASE = "https://backend.payhero.co.ke/api/v2"
 AUTH = "Basic NVUyRXl1S1FBTlhwa2t2TUROUzY6aE9tc2xmUDZCYmR1dTJzV1RCb2ZiSnhoRUlrWXhWTFNrZFVkRjUyNw=="
 CHANNEL_ID = 10752
-CALLBACK_URL = "https://payhero-callback-setup.onrender.com/callback"   # optional: e.g. "https://YOUR-SERVICE.onrender.com/callback"
+CALLBACK_URL = ""   # optional: "https://payhero-callback-setup.onrender.com/callback"
 
 HEADERS = {
     "Authorization": AUTH,
     "Content-Type": "application/json",
     "Accept": "application/json",
-    "Accept-Encoding": "identity",   # ask PayHero not to compress
+    "Accept-Encoding": "identity",   # avoids the gzip decoding error
 }
 
 
@@ -41,17 +41,19 @@ def pay():
     except (ValueError, TypeError):
         amount = 0
     if not d.get("phone") or amount < 1:
-            return jsonify(success=False,
-                   message=f"{body.get('error_message') or body.get('message') or 'Failed'} | {r.text[:300]}"), 400
+        return jsonify(success=False, message="Phone and amount required"), 400
 
     payload = {
         "amount": amount,
         "phone_number": fmt_phone(str(d["phone"])),
         "channel_id": CHANNEL_ID,
+        "provider": "m-pesa",
         "external_reference": d.get("reference", "Payment"),
     }
     if CALLBACK_URL:
         payload["callback_url"] = CALLBACK_URL
+
+    print("PAY REQUEST", payload)
 
     try:
         r = requests.post(f"{BASE}/payments", headers=HEADERS, json=payload, timeout=30)
@@ -67,8 +69,9 @@ def pay():
     ref = body.get("reference")
     if r.status_code in (200, 201) and ref:
         return jsonify(success=True, reference=ref)
-    return jsonify(success=False,
-                   message=body.get("error_message") or body.get("message") or "Failed"), 400
+
+    msg = body.get("error_message") or body.get("message") or "Failed"
+    return jsonify(success=False, message=f"{msg} | {r.text[:300]}"), 400
 
 
 @app.get("/status/<ref>")
