@@ -101,6 +101,7 @@ def withdraw():
         "network_code": 63902,
         "channel": "mobile",
         "channel_id": 10752,
+        "payment_service": "b2c",
     }
 
     USED_REFS.add(ref)
