@@ -9,7 +9,7 @@ CORS(app)
 BASE = "https://backend.payhero.co.ke/api/v2"
 AUTH = "Basic NVUyRXl1S1FBTlhwa2t2TUROUzY6aE9tc2xmUDZCYmR1dTJzV1RCb2ZiSnhoRUlrWXhWTFNrZFVkRjUyNw=="
 CHANNEL_ID = 10752
-CALLBACK_URL = ""   # optional: e.g. "https://YOUR-SERVICE.onrender.com/callback"
+CALLBACK_URL = "https://payhero-callback-setup.onrender.com/callback"   # optional: e.g. "https://YOUR-SERVICE.onrender.com/callback"
 
 HEADERS = {"Authorization": AUTH, "Content-Type": "application/json"}
 
