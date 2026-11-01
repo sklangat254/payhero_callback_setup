@@ -9,12 +9,14 @@ CORS(app)
 BASE = "https://backend.payhero.co.ke/api/v2"
 AUTH = "Basic NVUyRXl1S1FBTlhwa2t2TUROUzY6aE9tc2xmUDZCYmR1dTJzV1RCb2ZiSnhoRUlrWXhWTFNrZFVkRjUyNw=="
 CHANNEL_ID = 10752            # collections (STK push)
-WALLET_CHANNEL_ID = 10752     # payouts: your payments-wallet channel ID
-CALLBACK_URL = ""             # optional
+CALLBACK_URL = ""             # optional: "https://payhero-callback-setup.onrender.com/callback"
 
-# ---------- Withdrawal safety ----------
-API_KEY = "ysgftr56-dvlshhshbsbfzf"  # manually change this api key and type the same thing in withdraw api
+# ---------- Withdrawal (B2C) settings ----------
+API_KEY = "CHANGE-THIS-TO-A-LONG-RANDOM-STRING"   # YOU invent this; same value goes on the test page
 MAX_WITHDRAW = 1000           # KES per request
+WALLET_CHANNEL_ID = None      # attempt 1: no channel_id. Attempt 2: set to 10752
+SEND_PAYMENT_SERVICE = True   # attempt 3: set to False
+NETWORK_CODE_AS_INT = False   # attempt 4: set to True
 USED_REFS = set()             # resets on restart; Firebase check comes next
 
 HEADERS = {
@@ -126,11 +128,13 @@ def withdraw():
         "external_reference": ref,
         "amount": amount,
         "phone_number": fmt_phone(str(d["phone"])),
-        "network_code": "63902",            # M-Pesa
+        "network_code": 63902 if NETWORK_CODE_AS_INT else "63902",   # M-Pesa
         "channel": "mobile",
-        "channel_id": WALLET_CHANNEL_ID,
-        "payment_service": "b2c",
     }
+    if SEND_PAYMENT_SERVICE:
+        payload["payment_service"] = "b2c"
+    if WALLET_CHANNEL_ID:
+        payload["channel_id"] = WALLET_CHANNEL_ID
     if CALLBACK_URL:
         payload["callback_url"] = CALLBACK_URL
 
@@ -178,7 +182,7 @@ def withdraw_status(ref):
     return jsonify(state=state, raw=s, detail=j)
 
 
-@app.post("/callback")
+@app.post("/callback")   # optional backup, only logs for now
 def callback():
     print("CALLBACK", request.get_data(as_text=True))
     return jsonify(ok=True)
