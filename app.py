@@ -12,7 +12,7 @@ CORS(app)
 BASE = "https://backend.payhero.co.ke/api/v2"
 AUTH = "Basic NVUyRXl1S1FBTlhwa2t2TUROUzY6aE9tc2xmUDZCYmR1dTJzV1RCb2ZiSnhoRUlrWXhWTFNrZFVkRjUyNw=="
 CHANNEL_ID = 10752            # collections (STK push)
-CALLBACK_URL = ""             # optional: "https://payhero-callback-setup.onrender.com/callback"
+CALLBACK_URL = ""             # optional, used by STK push only
 
 # Webhook signing secret: set FINOQ_WEBHOOK_SECRET in Render > Environment
 WEBHOOK_SECRET = os.environ.get("FINOQ_WEBHOOK_SECRET", "")
@@ -20,7 +20,9 @@ WEBHOOK_SECRET = os.environ.get("FINOQ_WEBHOOK_SECRET", "")
 # ---------- Withdrawal (B2C) settings ----------
 API_KEY = "rt-test-key-2026"  # YOU invent this; same value goes on the test page
 MAX_WITHDRAW = 1000           # KES per request
-WALLET_CHANNEL_ID = 10752     # channel sent with withdrawals
+WALLET_CHANNEL_ID = 10752     # used by variant H
+VENDOR_ID = 4396              # used by variants I and J
+WITHDRAW_CALLBACK = "https://payhero-callback-setup.onrender.com/callback"
 USED_REFS = set()             # resets on restart; Firebase check comes next
 
 HEADERS = {
@@ -37,6 +39,35 @@ def fmt_phone(p):
         p = "254" + p[1:]
     elif not p.startswith("254"):
         p = "254" + p
+    return p
+
+
+def build_withdraw_payload(variant, ref, amount, phone):
+    """
+    F: exactly what PayHero's official PHP client sends (callback_url set)
+    G: same as F but callback_url is an empty string (the client's default)
+    H: F plus channel_id 10752
+    I: F plus channel_id 4396 (vendor ID)
+    J: F plus channel_id 4396 and payment_service b2c
+    network_code must be a STRING; a number is rejected.
+    """
+    p = {
+        "amount": amount,
+        "phone_number": phone,
+        "network_code": "63902",           # M-Pesa
+        "external_reference": ref,
+        "callback_url": WITHDRAW_CALLBACK,
+        "channel": "mobile",
+    }
+    if variant == "G":
+        p["callback_url"] = ""
+    elif variant == "H":
+        p["channel_id"] = WALLET_CHANNEL_ID
+    elif variant == "I":
+        p["channel_id"] = VENDOR_ID
+    elif variant == "J":
+        p["channel_id"] = VENDOR_ID
+        p["payment_service"] = "b2c"
     return p
 
 
@@ -121,6 +152,9 @@ def withdraw():
     except (ValueError, TypeError):
         amount = 0
     ref = str(d.get("reference", "")).strip()
+    variant = str(d.get("attempt", "F")).upper()
+    if variant not in ("F", "G", "H", "I", "J"):
+        variant = "F"
 
     if not d.get("phone") or amount < 1 or not ref:
         return jsonify(success=False, message="phone, amount, reference required"), 400
@@ -129,27 +163,16 @@ def withdraw():
     if ref in USED_REFS:
         return jsonify(success=False, message="Duplicate reference"), 409
 
-    # Attempt A format: network_code MUST be a string (a number is rejected)
-    payload = {
-        "external_reference": ref,
-        "amount": amount,
-        "phone_number": fmt_phone(str(d["phone"])),
-        "network_code": "63902",       # M-Pesa
-        "channel": "mobile",
-        "channel_id": WALLET_CHANNEL_ID,
-        "payment_service": "b2c",
-    }
-    if CALLBACK_URL:
-        payload["callback_url"] = CALLBACK_URL
+    payload = build_withdraw_payload(variant, ref, amount, fmt_phone(str(d["phone"])))
 
     USED_REFS.add(ref)
-    print("WITHDRAW REQUEST", payload)
+    print("WITHDRAW REQUEST", variant, payload)
     try:
         r = requests.post(f"{BASE}/withdraw", headers=HEADERS, json=payload, timeout=30)
     except requests.RequestException as e:
         # request may or may not have reached PayHero: keep ref locked
         return jsonify(success=False, message=f"Network error: {e}", sent=payload), 502
-    print("WITHDRAW", r.status_code, r.text)
+    print("WITHDRAW", variant, r.status_code, r.text)
 
     try:
         body = r.json()
@@ -157,15 +180,14 @@ def withdraw():
         return jsonify(success=False, message="Bad response from PayHero", sent=payload), 502
 
     if r.status_code in (200, 201) and str(body.get("status", "")).upper() == "QUEUED":
-        return jsonify(success=True,
+        return jsonify(success=True, attempt=variant,
                        reference=body.get("merchant_reference"),
                        checkout_id=body.get("checkout_request_id"),
-                       status="QUEUED",
-                       sent=payload)
+                       status="QUEUED", sent=payload)
 
     USED_REFS.discard(ref)   # rejected by PayHero: allow retry
     msg = body.get("error_message") or body.get("message") or "Failed"
-    return jsonify(success=False, message=msg,
+    return jsonify(success=False, attempt=variant, message=msg,
                    payhero=r.text[:400], sent=payload), 400
 
 
