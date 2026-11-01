@@ -13,7 +13,7 @@ WALLET_CHANNEL_ID = 10752     # payouts: your payments-wallet channel ID
 CALLBACK_URL = ""             # optional
 
 # ---------- Withdrawal safety ----------
-API_KEY = "CHANGE-THIS-TO-A-LONG-RANDOM-STRING"
+API_KEY = "ysgftr56-dvlshhshbsbfzf"  # manually change this api key and type the same thing in withdraw api
 MAX_WITHDRAW = 1000           # KES per request
 USED_REFS = set()             # resets on restart; Firebase check comes next
 
