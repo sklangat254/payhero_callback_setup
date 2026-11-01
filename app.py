@@ -82,12 +82,23 @@ def status(ref):
     except requests.RequestException as e:
         return jsonify(state="PENDING", paid=False, raw=f"network: {e}")
     print("STATUS", r.status_code, r.text)
+
     try:
-        s = str(r.json().get("status", "")).upper()
+        j = r.json()
     except ValueError:
-        s = ""
+        j = {}
+
+    s = str(j.get("status", "")).upper()
     state = "COMPLETED" if s == "SUCCESS" else "FAILED" if s == "FAILED" else "PENDING"
-    return jsonify(state=state, paid=(state == "COMPLETED"), raw=s)
+
+    return jsonify(
+        state=state,
+        paid=(state == "COMPLETED"),
+        raw=s,
+        amount=j.get("amount"),
+        receipt=j.get("provider_reference"),
+        phone=j.get("phone_number"),
+    )
 
 
 @app.post("/callback")   # optional backup, only logs for now
