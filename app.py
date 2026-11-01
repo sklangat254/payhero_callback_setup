@@ -12,7 +12,7 @@ CHANNEL_ID = 10752            # collections (STK push)
 CALLBACK_URL = ""             # optional: "https://payhero-callback-setup.onrender.com/callback"
 
 # ---------- Withdrawal (B2C) settings ----------
-API_KEY = "CHANGE-THIS-TO-A-LONG-RANDOM-STRING"   # YOU invent this; same value goes on the test page
+API_KEY = "rt-test-key-2026"   # YOU invent this; same value goes on the test page
 MAX_WITHDRAW = 1000           # KES per request
 WALLET_CHANNEL_ID = None      # attempt 1: no channel_id. Attempt 2: set to 10752
 SEND_PAYMENT_SERVICE = True   # attempt 3: set to False
