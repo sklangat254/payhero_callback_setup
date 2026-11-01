@@ -27,7 +27,7 @@ def fmt_phone(p):
 
 @app.get("/")
 def home():
-    return jsonify(status="running", attempt="A")
+    return jsonify(status="running", attempt="B")
 
 
 @app.post("/pay")
@@ -101,7 +101,6 @@ def withdraw():
         "network_code": "63902",
         "channel": "mobile",
         "channel_id": 10752,
-        "payment_service": "b2c",
     }
 
     USED_REFS.add(ref)
