@@ -183,6 +183,19 @@ def bal_adjust():
         return jsonify(success=False, message="bad request"), 400
     if kind == "win" and amt > 1000000:
         return jsonify(success=False, message="amount too large"), 400
+    # optional request id: a retried request (lost reply) can never be applied twice
+    rid = str(d.get("rid", "")).strip()
+    if rid:
+        if not (rid.isalnum() and len(rid) <= 40):
+            return jsonify(success=False, message="bad rid"), 400
+        def claim_rid(cur):
+            return None if cur else int(time.time())
+        try:
+            _, fresh = fb_txn(f"aviator_rid/{uid}/{rid}", claim_rid)
+            if not fresh:
+                return jsonify(success=True, duplicate=True, balance=get_balance(uid))
+        except Exception as e:
+            return jsonify(success=False, message=str(e)), 502
     try:
         nb = add_balance(uid, -amt if kind == "bet" else amt)
     except Exception as e:
