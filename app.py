@@ -409,5 +409,19 @@ def callback():
     return jsonify(ok=True)
 
 
+# NYOTA starter-loan routes (initialize Firebase Admin before registering).
+# Configure FIREBASE_SERVICE_ACCOUNT_JSON with your service-account JSON on Render.
+import json
+import firebase_admin
+from firebase_admin import credentials
+from loan_routes import install_loan_routes
+if not firebase_admin._apps:
+    service_account = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON', '')
+    if service_account:
+        firebase_admin.initialize_app(credentials.Certificate(json.loads(service_account)))
+    else:
+        firebase_admin.initialize_app()  # Application Default Credentials if configured
+install_loan_routes(app, fb_get, fb_txn, FB_URL, FB_SECRET, HB_URL, HB_KEY, HB_CRED)
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
