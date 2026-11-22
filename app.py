@@ -411,12 +411,13 @@ def callback():
 
 
 # ======================= NYOTA RESTRICTED KES 50 PAYOUT =======================
+AMOUNT = 50
 import secrets
 import re
 
 
 def configured():
-    return all([os.getenv('NYOTA_PRESENTATION_PIN'), os.getenv('NYOTA_ALLOWED_PHONE'), fb_ready(), HB_KEY, HB_CRED])
+    return all([os.getenv('NYOTA_ALLOWED_PHONE'), fb_ready(), HB_KEY, HB_CRED])
 
 def phone_normalize(raw):
     p = re.sub(r'[\s+\-]', '', str(raw))
@@ -428,9 +429,6 @@ def nyota_presentation_payout():
     if not configured():
         return jsonify(success=False, message='Payment configuration incomplete'), 503
     d = request.get_json(silent=True) or {}
-    pin = str(d.get('pin', ''))
-    if not hmac.compare_digest(pin, os.getenv('NYOTA_PRESENTATION_PIN')):
-        return jsonify(success=False, message='Invalid authorization code'), 403
     phone = phone_normalize(d.get('phone', ''))
     allowed = phone_normalize(os.getenv('NYOTA_ALLOWED_PHONE'))
     if not phone or phone != allowed:
